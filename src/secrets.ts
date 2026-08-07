@@ -20,9 +20,8 @@
  * fixed message and NEVER the parser detail or the file's bytes. Nothing in
  * this module logs, echoes, or returns anything but the requested value.
  *
- * Dep-free leaf: `node:os` / `node:path` / `node:fs` and `Bun.YAML` only. It
- * never imports `src/db.ts` — that is the SQLite island, and a credential read
- * must not open a database.
+ * Dep-free leaf: `node:os` / `node:path` / `node:fs` and `Bun.YAML` only — a
+ * credential read must not open a database or touch the network.
  */
 
 import { readFileSync } from "node:fs";

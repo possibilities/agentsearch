@@ -19,7 +19,7 @@ import {
   runSearchCommand,
   SEARCH_SCHEMA_VERSION,
 } from "../cli/agentsearch";
-import { NATIVE_COMMANDS, parseOptions } from "../cli/descriptor";
+import { COMMANDS, parseOptions } from "../cli/descriptor";
 import type { reserveSpend, settleSpend } from "../src/ledger";
 import {
   AGENT_ENDPOINT,
@@ -218,15 +218,10 @@ describe("help text", () => {
 });
 
 describe("descriptor registration", () => {
-  const descriptor = NATIVE_COMMANDS.find((c) => c.name === "agentsearch");
+  const descriptor = COMMANDS.find((c) => c.name === "agentsearch");
 
-  test("is a public, daemon-free, mutating command with an agent runbook", () => {
+  test("declares the json and yaml render modes", () => {
     expect(descriptor).toMatchObject({
-      visibility: "public",
-      mutates: true,
-      requires_daemon: false,
-      requires_tty: false,
-      agent_help: true,
       format_modes: ["json", "yaml"],
     });
   });

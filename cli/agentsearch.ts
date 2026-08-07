@@ -25,6 +25,7 @@
  */
 
 import { parseArgs } from "node:util";
+import { parseDuration } from "../src/duration";
 import {
   DEPTH_HOLD_USD,
   FIND_HOLD_USD,
@@ -67,7 +68,6 @@ import {
 } from "../src/transport";
 import type { FormatMode } from "./descriptor";
 import { parseOptions } from "./descriptor";
-import { parseDuration } from "./duration";
 import { errorEnvelope, type ProblemError, successEnvelope } from "./envelope";
 import { emitEnvelopeFormatted, resolveFormat } from "./format";
 
@@ -900,8 +900,6 @@ export async function main(argv: string[]): Promise<void> {
   await runSearchCommand(parsed.args, { writeStdout, writeStderr, exit });
 }
 
-// This file is the canonical entry: `agentsearch <ask|find> ...`. Keeper invoked
-// it as a nested verb and skipped one more argv slot for the parent command.
 if (import.meta.main) {
   void main(process.argv.slice(2));
 }

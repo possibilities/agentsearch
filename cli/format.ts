@@ -1,8 +1,8 @@
 /**
- * `--format json|yaml|human` resolution + rendering for the agentsearch-native
- * finite-output readers (ADR 0008).
+ * `--format json|yaml` resolution + rendering for the agentsearch finite-output
+ * readers.
  *
- * The one output-format idiom across agentsearch: `--format json|yaml|human` with
+ * The one output-format idiom across agentsearch: `--format json|yaml` with
  * `--json` a documented alias of `--format json`. A reader's SUPPORTED modes are
  * read from its pure-data descriptor `format_modes` (never a second table), so a
  * request for a mode the command cannot render is a usage fault — never a silent
@@ -70,9 +70,8 @@ export function resolveFormat(
 }
 
 /** Render one envelope to its wire string in `format`: pretty JSON (2-space
- *  indent + one trailing newline — byte-identical to the json-only emit path) or
- *  block YAML through the shared serializer, normalized to one trailing newline.
- *  A `human` value (never produced for an envelope reader) degrades to JSON. */
+ *  indent + one trailing newline) or block YAML through the shared serializer,
+ *  normalized to one trailing newline. */
 export function renderEnvelope<D>(
   env: Envelope<D>,
   format: FormatMode,
@@ -84,8 +83,7 @@ export function renderEnvelope<D>(
 }
 
 /** Print the envelope in `format` on stdout, then exit under the envelope exit
- *  model (`ok:true` → 0, `ok:false` → 1). The format-aware sibling of
- *  `emitEnvelope` the finite-output readers use once they resolve their mode. */
+ *  model (`ok:true` → 0, `ok:false` → 1). */
 export function emitEnvelopeFormatted<D>(
   env: Envelope<D>,
   sink: EnvelopeSink,

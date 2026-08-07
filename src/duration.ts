@@ -1,17 +1,13 @@
 /**
- * The one duration grammar every keeper duration-valued flag speaks.
+ * The one duration grammar every duration-valued flag speaks (`--timeout`).
  *
  * Unit is REQUIRED: `500ms`, `30s`, `5m`, `2h`, and compounds like `1h30m`. A
  * bare number is rejected with a hint that names the fix (`2` → `2s`) so the
  * miss is self-healing. Modeled on Go's `time.ParseDuration` subset — reject a
  * unitless value rather than guessing seconds vs milliseconds.
  *
- * This is a DEP-FREE leaf (no `bun:sqlite`, no DB, no other keeper module): the
- * shared seam every CLI viewer / `status` / `await` / `baseline` flag AND the
- * daemon-side agent surface (`src/pair/panel.ts`, `src/agent/run-capture.ts`,
- * `src/agent/pair-subcommands.ts`) all parse through, so no two callers can
- * drift to different duration grammars. `cli/duration.ts` re-exports this for
- * cli-side callers.
+ * Dep-free leaf: every caller parses through this one seam, so no two flags can
+ * drift to different duration grammars.
  */
 
 /** Milliseconds per accepted unit. `ms` precedes `s` in the grammar so a greedy

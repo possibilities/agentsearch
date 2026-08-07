@@ -1,39 +1,24 @@
 /**
- * The shared one-shot JSON envelope for agentsearch-native CLI commands.
+ * The shared one-shot JSON envelope for agentsearch CLI commands.
  *
- * Every agentsearch-native one-shot read/mutate prints ONE
- * `{schema_version, ok, error, data}` value on stdout. `schema_version` is
- * per-verb — the caller injects it — and versions the `data` payload; the
- * envelope KEY SET itself is governed by an additive-only contract (consumers
- * ignore unknown keys; a field name is never repurposed), so there is no second
- * global envelope version int.
+ * Every one-shot read/mutate prints ONE `{schema_version, ok, error, data}`
+ * value on stdout. `schema_version` is per-verb — the caller injects it — and
+ * versions the `data` payload; the envelope KEY SET itself is governed by an
+ * additive-only contract (consumers ignore unknown keys; a field name is never
+ * repurposed), so there is no second global envelope version int.
  *
- * Exit model (the reference is `cli/status.ts`): a bad board / bad domain state
- * is DATA on an `ok:true` envelope at exit 0. A TRANSPORT failure is an
- * `ok:false` envelope, exit 1 — the envelope still lands on stdout so an agent
- * always parses the last stdout as JSON, never empty stdout + stderr prose. A
- * USAGE / grammar fault (an unknown flag, a bad `--format`, a `--json --format
- * yaml` conflict) is NOT an envelope: it prints help to stderr and exits 2,
- * matching the shared unit-required-grammar / Click exit-2 stance.
+ * Exit model: a transport / provider / budget / ledger failure is an `ok:false`
+ * envelope, exit 1 — the envelope still lands on stdout so an agent always
+ * parses the last stdout as JSON, never empty stdout + stderr prose. A USAGE /
+ * grammar fault (an unknown flag, a bad `--format`, a `--json --format yaml`
+ * conflict) is NOT an envelope: it prints help to stderr and exits 2.
  *
  * `error` is `null` on success and `{code, message, recovery}` on failure
  * (RFC 9457 problem-details informs the split):
- *   - `code`     — a stable, machine-matchable problem code (see
- *                  `docs/problem-codes.md`).
+ *   - `code`     — a stable, machine-matchable problem code.
  *   - `message`  — a corrective one-line human string, not a diagnostic dump; no
  *                  stack traces and no filesystem paths in an agent-facing error.
  *   - `recovery` — the actionable next step, including retry-safety.
- *
- * EXEMPTIONS — surfaces that deliberately do NOT emit this envelope and must not
- * be migrated onto it:
- *   - the plan `emit()` family (`plugins/plan/src/emit.ts`):
- *     `{success, ...data, plan_invocation}`, frozen for Python byte-parity and
- *     the one-JSON-root guard; it converges only on the error SUB-OBJECT.
- *   - `agentsearch plan validate`: `{valid, errors, warnings}`, exit 1 on
- *     `valid:false`.
- *   - `agentsearch plan cat`: raw markdown, format-free.
- *   - `agentsearch show-session-files`: the snake_case Python-parity payload.
- *   - `agentsearch watch`: the streaming `{sequence, type, data}` frame shape.
  */
 
 /** The failure sub-object every `ok:false` envelope carries. `details` is an
@@ -79,36 +64,3 @@ export interface EnvelopeSink {
   writeStdout: (s: string) => void;
   exit: (code: number) => never;
 }
-
-/** Print the envelope (pretty, trailing newline) on stdout, then exit under the
- *  exit model: `ok:true` → 0, `ok:false` → 1. */
-export function emitEnvelope<D>(
-  envelope: Envelope<D>,
-  sink: EnvelopeSink,
-): void {
-  sink.writeStdout(`${JSON.stringify(envelope, null, 2)}\n`);
-  sink.exit(envelope.ok ? 0 : 1);
-}
-
-/** Recovery guidance for a daemon-unreachable / connect transport failure —
- *  shared by every read that round-trips the daemon socket. */
-export const RECOVERY_DAEMON_DOWN =
-  "The agentsearch daemon did not answer over its socket. Confirm it is running " +
-  "(its LaunchAgent restarts it), then retry — this read is retry-safe and " +
-  "never mutates state.";
-
-/** Recovery guidance for a agentsearch.db read failure — shared by the in-binary
- *  bare readers that open agentsearch.db read-only. A read never mutates, so a retry
- *  is always safe. */
-export const RECOVERY_DB_READ =
-  "Retry the read — it opens agentsearch.db read-only and never mutates state. If it " +
-  "persists, confirm the agentsearch daemon is healthy (its LaunchAgent restarts it).";
-
-/** The default stdout + `process.exit` sink for the in-binary one-shot readers.
- *  Tests inject a capturing sink instead (see `test/envelope.test.ts`). */
-export const processEnvelopeSink: EnvelopeSink = {
-  writeStdout: (s: string) => {
-    process.stdout.write(s);
-  },
-  exit: (code: number): never => process.exit(code),
-};

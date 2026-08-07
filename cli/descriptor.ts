@@ -1,11 +1,7 @@
 /**
  * The command descriptor for `agentsearch`, and the derivation helper that turns
- * it into a `node:util` `parseArgs` options object.
- *
- * Extracted from Keeper, which described its whole CLI surface in one table.
- * Only this command's entry and the flag fragments it references are carried
- * over: the descriptor exists so the accepted flags cannot diverge from the
- * documented flags, and that guarantee is per-command.
+ * it into a `node:util` `parseArgs` options object. The descriptor exists so the
+ * accepted flags cannot diverge from the documented flags.
  */
 
 /** The two value shapes `node:util` `parseArgs` supports. */
@@ -42,37 +38,20 @@ export interface ParseOption {
   default?: boolean | string;
 }
 
-/** Whether a command shows up in the human `USAGE` block. `internal` commands
- *  are wiring-only (fleet-injected, never typed by a human): omitted from USAGE,
- *  still present in `keeper --help --json` carrying this field. */
-export type Visibility = "public" | "internal";
-
 /** The output renderings a finite-output read command can produce. Declared
  *  truthfully — a command never advertises a mode it cannot render. */
-export type FormatMode = "json" | "yaml" | "human";
+export type FormatMode = "json" | "yaml";
 
 /**
  * One command (top-level subcommand, or a nested verb under `verbs`). The
- * recursive `verbs` array carries the two-level surface (`autopilot pause`,
- * `tabs restore`, …). `flags` is authoritative for a derived leaf; declaration-
- * only for a hand-rolled/dispatcher leaf.
+ * recursive `verbs` array carries the two-level surface (`ask`, `find`).
+ * `flags` is authoritative for a derived leaf.
  */
 export interface CommandDescriptor {
   readonly name: string;
   readonly summary: string;
-  readonly visibility: Visibility;
-  /** Writes state (git, tmux, the bus, a spool/leaf) as its primary effect. */
-  readonly mutates: boolean;
-  /** Needs a live daemon socket connection to do its job. */
-  readonly requires_daemon: boolean;
-  /** Refuses a non-TTY stdout (no snapshot fallback). */
-  readonly requires_tty: boolean;
-  /** Carries a `--agent-help` operator runbook distinct from `--help`. */
-  readonly agent_help?: boolean;
   /** Output renderings this command can produce (finite-output reads only). */
   readonly format_modes?: readonly FormatMode[];
-  /** Command-specific exit codes beyond the shared 0/1/2 core. */
-  readonly exit_codes?: Readonly<Record<string, string>>;
   /** The flag surface (authoritative for derived leaves). */
   readonly flags: readonly FlagDescriptor[];
   /** Nested verbs for a two-level command. */
@@ -153,13 +132,6 @@ const FLAG_JSON_ALIAS = {
   summary: "Alias of --format json",
 } as const satisfies FlagDescriptor;
 
-const FLAG_AGENT_HELP_DEFAULTED = {
-  name: "agent-help",
-  type: "boolean",
-  default: false,
-  summary: "Show the terse operator runbook",
-} as const satisfies FlagDescriptor;
-
 /** The retrieval filters both `search` verbs accept. `--domains` is repeatable
  *  AND comma-splittable; the leaf validates the allowlist-or-denylist rule and
  *  the entry ceiling before a paid request is shaped. */
@@ -218,25 +190,13 @@ const AGENTSEARCH_COMMAND: CommandDescriptor = {
   name: "agentsearch",
   summary:
     "Grounded web research: `agentsearch <ask|find>` (answers vs. ranked hits)",
-  visibility: "public",
-  mutates: true,
-  requires_daemon: false,
-  requires_tty: false,
-  agent_help: true,
   format_modes: ["json", "yaml"],
-  exit_codes: {
-    "2": "argument fault (unknown verb/depth/recency, a mixed domain allow+deny list, or --depth high without --allow-expensive)",
-  },
-  flags: [FLAG_HELP, FLAG_AGENT_HELP_DEFAULTED],
+  flags: [FLAG_HELP],
   verbs: [
     {
       name: "ask",
       summary:
         "Synthesized, cited answer to one dense question (hand it the whole question)",
-      visibility: "public",
-      mutates: true,
-      requires_daemon: false,
-      requires_tty: false,
       format_modes: ["json", "yaml"],
       flags: SEARCH_ASK_FLAGS,
     },
@@ -244,10 +204,6 @@ const AGENTSEARCH_COMMAND: CommandDescriptor = {
       name: "find",
       summary:
         "Ranked web hits for the caller to analyze (short keyword queries)",
-      visibility: "public",
-      mutates: true,
-      requires_daemon: false,
-      requires_tty: false,
       format_modes: ["json", "yaml"],
       flags: SEARCH_FIND_FLAGS,
     },
@@ -255,9 +211,6 @@ const AGENTSEARCH_COMMAND: CommandDescriptor = {
 };
 
 export const COMMANDS: readonly CommandDescriptor[] = [AGENTSEARCH_COMMAND];
-
-/** Keeper's name for the same collection, kept so its tests port unchanged. */
-export const NATIVE_COMMANDS: readonly CommandDescriptor[] = COMMANDS;
 
 const BY_NAME = new Map<string, CommandDescriptor>(
   COMMANDS.map((command) => [command.name, command] as const),

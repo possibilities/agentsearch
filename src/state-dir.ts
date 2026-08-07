@@ -1,16 +1,11 @@
 /**
- * `~/.local/state/agentsearch/` — agentsearch's durable per-user STATE root, the sibling of
- * `agentsearchConfigDir()`'s `~/.config/agentsearch/` (src/agent/config.ts). Deliberately
- * NON-XDG: it is distinct from the XDG-honoring
- * `defaultAgentsearchAgentStateDir` / `agentsearch-agent` dir the tmux
- * launcher uses.
+ * `~/.local/state/agentsearch/` — the durable per-user STATE root, the sibling
+ * of `~/.config/agentsearch/` (src/secrets.ts). The spend ledger lives here.
  *
- * `AGENTSEARCH_STATE_DIR` overrides it — the single env seam (the test-isolation lever,
- * since os.homedir() ignores $HOME on macOS, and a production override).
+ * `AGENTSEARCH_STATE_DIR` overrides it — the single env seam (the test-isolation
+ * lever, since os.homedir() ignores $HOME on macOS, and a production override).
  *
- * Dep-free leaf: `node:*` only, never bun:sqlite — the durable panel state under
- * `<state-dir>/panels/` is filesystem-only, so `src/pair/panel.ts` can import this
- * without reaching the DB island.
+ * Dep-free leaf: `node:*` only.
  */
 
 import { homedir } from "node:os";

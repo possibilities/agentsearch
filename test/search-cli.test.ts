@@ -64,6 +64,13 @@ describe("parseSearchArgs", () => {
     });
   });
 
+  test("--agent-teaser is a one-line summary", () => {
+    expect(parseSearchArgs(["--agent-teaser"])).toEqual({
+      ok: false,
+      kind: "agent-teaser",
+    });
+  });
+
   test("an unknown verb is an argument fault", () => {
     expect(faultMessage(["fetch", "x"])).toContain("unknown verb");
   });

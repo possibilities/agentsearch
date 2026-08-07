@@ -90,6 +90,7 @@ Usage:
   agentsearch ask  "<question>" [--depth fast|low|medium|high] [flags]
   agentsearch find "<query>" [--limit <n>] [flags]
   agentsearch --agent-help
+  agentsearch --agent-teaser
   agentsearch --help
 
 Verbs:
@@ -227,6 +228,9 @@ retry can bill twice.
 Not here: fetching a specific URL's content. That is agentscrape's job.
 `;
 
+export const AGENT_TEASER =
+  "Grounded web research: cited answers (ask) and ranked hits (find), budget-capped paid calls with a local spend ledger.";
+
 // ── argument parsing ─────────────────────────────────────────────────────────
 
 export interface ParsedAsk {
@@ -253,6 +257,7 @@ export type SearchParseResult =
   | { readonly ok: true; readonly args: ParsedSearch }
   | { readonly ok: false; readonly kind: "help" }
   | { readonly ok: false; readonly kind: "agent-help" }
+  | { readonly ok: false; readonly kind: "agent-teaser" }
   | { readonly ok: false; readonly kind: "fault"; readonly message: string };
 
 function fault(message: string): SearchParseResult {
@@ -302,6 +307,7 @@ export function parseSearchArgs(argv: readonly string[]): SearchParseResult {
     return { ok: false, kind: "help" };
   }
   if (verb === "--agent-help") return { ok: false, kind: "agent-help" };
+  if (verb === "--agent-teaser") return { ok: false, kind: "agent-teaser" };
   if (verb !== "ask" && verb !== "find") {
     return fault(`unknown verb '${verb}' (expected ask | find)`);
   }
@@ -894,6 +900,10 @@ export async function main(argv: string[]): Promise<void> {
     }
     if (parsed.kind === "agent-help") {
       writeStdout(AGENT_HELP);
+      return;
+    }
+    if (parsed.kind === "agent-teaser") {
+      writeStdout(`${AGENT_TEASER}\n`);
       return;
     }
     writeStderr(`agentsearch: ${parsed.message}\n\n${HELP}`);

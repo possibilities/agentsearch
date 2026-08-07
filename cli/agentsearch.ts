@@ -132,6 +132,8 @@ Exit codes:
   0  the answer / hits were emitted
   1  a transport, provider, budget, or ledger failure (ok:false envelope on stdout)
   2  usage / argument fault
+
+Run agentsearch --agent-help for the agent runbook.
 `;
 
 export const AGENT_HELP = `agentsearch — operator runbook (agent-facing)

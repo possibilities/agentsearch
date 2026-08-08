@@ -14,7 +14,7 @@
  * envelope (that is reserved for a transport failure).
  */
 
-import { yamlDump } from "../src/yaml_dump";
+import { yamlDump } from "../src/yaml-dump";
 import { type FormatMode, nativeDescriptor } from "./descriptor";
 import type { Envelope, EnvelopeSink } from "./envelope";
 

@@ -1,15 +1,11 @@
 /**
- * `flock(2)` advisory lock primitive for serializing concurrent read-modify-
- * write cycles on any shared sidecar file. General-purpose: the caller names the
- * lock path and owns whatever file it guards — the primitive knows nothing about
- * the guarded data.
+ * `flock(2)` advisory lock for serializing concurrent read-modify-write cycles
+ * on the ledger's sidecar lock file. The caller names the lock path and owns
+ * whatever file it guards — the primitive knows nothing about the guarded data.
+ * Leaf module: imports only `bun:ffi` + `node:fs`.
  *
- * DB-free leaf: imports only `bun:ffi` + `node:fs`, never `src/db.ts`, so a
- * cold-start caller (the DB-free `agentsearch agent` launch path) stays cheap. Mirrors
- * agentsearch's own `src/commit-work/flock.ts` libc/flock precedent.
- *
- * Two macOS-aarch64 correctness hazards, both asserted in tests because they
- * fail SILENTLY:
+ * Two macOS-aarch64 correctness hazards are handled here because they fail
+ * SILENTLY:
  *
  *  1. **FFI return type.** `flock` returns `int`; declaring it anything but
  *     `FFIType.i32` on aarch64 reads the wrong register width and can
@@ -23,10 +19,10 @@
  *     child exits. Marking the fd close-on-exec makes spawned children NOT
  *     inherit it.
  *
- * `FileLock` owns the common case: it opens its own lock file (truncating `"w"`
- * — content is irrelevant) and locks the open-file-description. A consumer that
- * must lock a fd it opened NON-truncating uses the raw `loadLibc` / `flockFd` /
- * `setCloexec` exports against its own fd.
+ * Lock behavior (acquire, contention, release) is asserted in
+ * `test/file-lock.test.ts`; the lock file is opened truncating (`"w"`) because
+ * its content is irrelevant — `flock` locks the open-file-description, not the
+ * bytes.
  */
 
 import {
@@ -40,7 +36,6 @@ import {
 import { closeSync, openSync } from "node:fs";
 
 // flock(2) operations, from <sys/file.h>. ABI-stable across darwin/linux.
-const LOCK_SH = 1;
 const LOCK_EX = 2;
 const LOCK_NB = 4;
 const LOCK_UN = 8;
@@ -54,7 +49,7 @@ const EWOULDBLOCK = process.platform === "darwin" ? 35 : 11;
 
 const LE = true; // both supported targets are little-endian
 
-export interface LibcSyms {
+interface LibcSyms {
   // flock(int fd, int operation) -> int
   flock: (fd: number, operation: number) => number;
   // fcntl(int fd, int cmd, int arg) -> int  (variadic; the 3-arg form for
@@ -64,7 +59,7 @@ export interface LibcSyms {
   errnoLocation: () => unknown;
 }
 
-export interface LoadedLibc {
+interface LoadedLibc {
   lib: Library<Record<string, never>>;
   syms: LibcSyms;
 }
@@ -83,12 +78,8 @@ const FCNTL_FN: FFIFunction = {
 };
 const ERRNO_FN: FFIFunction = { args: [], returns: FFIType.ptr };
 
-/**
- * Open libc and bind `flock` / `fcntl` / the errno accessor. Exported so an
- * external consumer can lock a fd it opened itself (non-truncating) without
- * going through {@link FileLock}, which truncates its lock file on open.
- */
-export function loadLibc(): LoadedLibc {
+/** Open libc and bind `flock` / `fcntl` / the errno accessor. */
+function loadLibc(): LoadedLibc {
   if (process.platform === "darwin") {
     const lib = dlopen(`libSystem.${suffix}`, {
       flock: FLOCK_FN,
@@ -122,7 +113,7 @@ export function loadLibc(): LoadedLibc {
 }
 
 /** Read the four bytes of the current thread's errno from `int *`. */
-export function readErrno(errnoPtr: unknown): number {
+function readErrno(errnoPtr: unknown): number {
   const ab = toArrayBuffer(
     errnoPtr as Parameters<typeof toArrayBuffer>[0],
     0,
@@ -132,11 +123,11 @@ export function readErrno(errnoPtr: unknown): number {
 }
 
 /**
- * Mark `fd` close-on-exec. Throws on failure. An external consumer locking its
- * own fd must call this BEFORE the blocking flock (hazard 2) so a child spawned
- * by a concurrent waiter can never inherit a half-armed lock.
+ * Mark `fd` close-on-exec. Throws on failure. Must run BEFORE the blocking
+ * flock (hazard 2) so a child spawned by a concurrent waiter can never inherit
+ * a half-armed lock.
  */
-export function setCloexec(syms: LibcSyms, fd: number): void {
+function setCloexec(syms: LibcSyms, fd: number): void {
   const fr = syms.fcntl(fd, F_SETFD, FD_CLOEXEC);
   if (fr < 0) {
     const errno = readErrno(syms.errnoLocation());
@@ -146,14 +137,9 @@ export function setCloexec(syms: LibcSyms, fd: number): void {
 
 /**
  * Run `flock(fd, operation)`. Returns true on success, false on `EWOULDBLOCK`
- * (a non-blocking acquire on a held lock); throws on any other errno. Exported
- * for the external consumer that locks its own fd.
+ * (a non-blocking acquire on a held lock); throws on any other errno.
  */
-export function flockFd(
-  syms: LibcSyms,
-  fd: number,
-  operation: number,
-): boolean {
+function flockFd(syms: LibcSyms, fd: number, operation: number): boolean {
   const r = syms.flock(fd, operation);
   if (r < 0) {
     const errno = readErrno(syms.errnoLocation());
@@ -242,14 +228,3 @@ export class FileLock {
     this.lib.close();
   }
 }
-
-// Re-export the raw constants so consumers (and tests) can assert the exact
-// values the FFI path uses without re-deriving them.
-export const FLOCK_CONSTANTS = {
-  LOCK_SH,
-  LOCK_EX,
-  LOCK_NB,
-  LOCK_UN,
-  F_SETFD,
-  FD_CLOEXEC,
-} as const;

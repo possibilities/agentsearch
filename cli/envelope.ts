@@ -22,9 +22,9 @@
  */
 
 /** The failure sub-object every `ok:false` envelope carries. `details` is an
- *  OPTIONAL structured diagnostic (e.g. an ambiguous read's candidate list) —
- *  additive, mirrors the plan family's converged error object; omitted when
- *  there is nothing structured to carry. */
+ *  OPTIONAL structured diagnostic (e.g. retry safety, HTTP status, budget
+ *  numbers) — additive only; omitted when there is nothing structured to
+ *  carry. */
 export interface ProblemError {
   code: string;
   message: string;

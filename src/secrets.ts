@@ -33,8 +33,8 @@ export class SecretsError extends Error {}
 
 /**
  * The `~/.config/agentsearch/` base dir. `AGENTSEARCH_CONFIG_DIR` overrides it — the
- * single env seam (the test-isolation lever, since os.homedir() ignores $HOME
- * on macOS, and a production override), matching the launcher config island.
+ * single env seam: the test-isolation lever (os.homedir() ignores $HOME on
+ * macOS) and a production override.
  */
 export function agentsearchConfigDir(
   env: Record<string, string | undefined> = process.env,

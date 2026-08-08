@@ -71,6 +71,14 @@ describe("parseSearchArgs", () => {
     });
   });
 
+  test("--version and -V are top-level", () => {
+    expect(parseSearchArgs(["--version"])).toEqual({
+      ok: false,
+      kind: "version",
+    });
+    expect(parseSearchArgs(["-V"])).toEqual({ ok: false, kind: "version" });
+  });
+
   test("an unknown verb is an argument fault", () => {
     expect(faultMessage(["fetch", "x"])).toContain("unknown verb");
   });

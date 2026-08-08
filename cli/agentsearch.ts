@@ -25,6 +25,7 @@
  */
 
 import { parseArgs } from "node:util";
+import { version as PACKAGE_VERSION } from "../package.json";
 import { parseDuration } from "../src/duration";
 import {
   DEPTH_HOLD_USD,
@@ -91,6 +92,7 @@ Usage:
   agentsearch find "<query>" [--limit <n>] [flags]
   agentsearch --agent-help
   agentsearch --agent-teaser
+  agentsearch --version
   agentsearch --help
 
 Verbs:
@@ -259,6 +261,7 @@ export type SearchParseResult =
   | { readonly ok: false; readonly kind: "help" }
   | { readonly ok: false; readonly kind: "agent-help" }
   | { readonly ok: false; readonly kind: "agent-teaser" }
+  | { readonly ok: false; readonly kind: "version" }
   | { readonly ok: false; readonly kind: "fault"; readonly message: string };
 
 function fault(message: string): SearchParseResult {
@@ -309,6 +312,9 @@ export function parseSearchArgs(argv: readonly string[]): SearchParseResult {
   }
   if (verb === "--agent-help") return { ok: false, kind: "agent-help" };
   if (verb === "--agent-teaser") return { ok: false, kind: "agent-teaser" };
+  if (verb === "--version" || verb === "-V") {
+    return { ok: false, kind: "version" };
+  }
   if (verb !== "ask" && verb !== "find") {
     return fault(`unknown verb '${verb}' (expected ask | find)`);
   }
@@ -905,6 +911,10 @@ export async function main(argv: string[]): Promise<void> {
     }
     if (parsed.kind === "agent-teaser") {
       writeStdout(`${AGENT_TEASER}\n`);
+      return;
+    }
+    if (parsed.kind === "version") {
+      writeStdout(`agentsearch ${PACKAGE_VERSION}\n`);
       return;
     }
     writeStderr(`agentsearch: ${parsed.message}\n\n${HELP}`);

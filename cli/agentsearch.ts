@@ -174,26 +174,17 @@ Depth (ask --depth, default ${DEFAULT_SEARCH_DEPTH}):
   Nothing in the environment or in config can raise the implicit depth above
   ${DEFAULT_SEARCH_DEPTH}; a deeper run is always an explicit flag.
 
-  Route to ${ESCALATION_SEARCH_DEPTH} UP FRONT when the request itself carries any of:
-    - several independent subquestions that must all be answered
-    - comparison or reconciliation across sources
-    - primary-source verification or an evidence audit
-    - root-cause investigation needing successive searches
-    - broad landscape or current-state research
-    - the words comprehensive, exhaustive, investigate, or deep
+  Route to ${ESCALATION_SEARCH_DEPTH} UP FRONT when the request itself demands multi-facet
+  coverage: several subquestions, cross-source comparison or verification, a
+  root-cause hunt, a broad landscape, or explicit words like comprehensive or
+  exhaustive. Retry at ${ESCALATION_SEARCH_DEPTH} AFTER ${DEFAULT_SEARCH_DEPTH} only on hard structural
+  evidence — an empty answer, zero usable sources under web-derived claims, a
+  named requested facet visibly absent — never on a hunch about tone or length:
+  a concise, single-source answer can be entirely correct.
 
-  Retry at ${ESCALATION_SEARCH_DEPTH} AFTER ${DEFAULT_SEARCH_DEPTH} only on hard structural evidence, never
-  on a hunch about tone or length:
-    - an empty or missing answer
-    - zero usable sources while the answer makes web-derived claims
-    - a specifically named or enumerated requested facet visibly absent
-  A concise, single-source answer can be entirely correct. Judge the request and
-  the evidence, not the prose.
-
-Filters (both verbs):
-  --recency ${RECENCY_WINDOWS.join("|")}
-  --domains a.com,b.com     Allowlist. A denylist prefixes EVERY entry with '-'
-                            (e.g. -reddit.com). Never mix the two; max 20.
+Filters (both verbs): --recency ${RECENCY_WINDOWS.join("|")}, and --domains —
+an allowlist, or a denylist with every entry '-'-prefixed, never mixed (--help
+has the grammar).
 
 Reading the result — stdout is the {schema_version, ok, error, data} envelope:
   ask   data = {answer, sources[], usage}. sources is the EVIDENCE SET the

@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "description": "Grounded web research for agents: cited answers and ranked hits, with a spend ledger.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/possibilities/agentsearch.git"
+  },
   "bin": {
     "agentsearch": "cli/agentsearch.ts"
   },
   "engines": {
-    "bun": "1.3.14"
+    "bun": ">=1.3.14"
   },
-  "packageManager": "bun@1.3.14",
   "dependencies": {
     "yaml": "2.8.1"
   },

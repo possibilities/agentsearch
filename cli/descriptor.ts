@@ -1,8 +1,20 @@
 /**
  * The command descriptor for `agentsearch`, and the derivation helper that turns
  * it into a `node:util` `parseArgs` options object. The descriptor exists so the
- * accepted flags cannot diverge from the documented flags.
+ * accepted flags cannot diverge from the documented flags, and its summaries
+ * interpolate the governing constants so the documented bounds cannot drift
+ * from the enforced ones.
  */
+
+import {
+  DEFAULT_FIND_LIMIT,
+  DEFAULT_SEARCH_DEPTH,
+  ESCALATION_SEARCH_DEPTH,
+  MAX_DOMAIN_ENTRIES,
+  MAX_FIND_LIMIT,
+  RECENCY_WINDOWS,
+  SEARCH_DEPTHS,
+} from "../src/perplexity";
 
 /** The two value shapes `node:util` `parseArgs` supports. */
 export type FlagType = "boolean" | "string";
@@ -115,7 +127,7 @@ const FLAG_HELP = {
   summary: "Show this help",
 } as const satisfies FlagDescriptor;
 
-/** The shared `--format json|yaml|human` flag for a finite-output JSON reader.
+/** The shared `--format json|yaml` flag for a finite-output JSON reader.
  *  The command's `format_modes` declares which values it actually renders; an
  *  off-list value is a usage fault (see `cli/format.ts`). */
 const FLAG_FORMAT = {
@@ -139,14 +151,13 @@ const SEARCH_FILTER_FLAGS = [
   {
     name: "recency",
     type: "string",
-    summary: "Retrieval window: hour|day|week|month|year",
+    summary: `Retrieval window: ${RECENCY_WINDOWS.join("|")}`,
   },
   {
     name: "domains",
     type: "string",
     multiple: true,
-    summary:
-      "Comma-separated domains; an allowlist, or a denylist with every entry prefixed '-' (max 20)",
+    summary: `Comma-separated domains; an allowlist, or a denylist with every entry prefixed '-' (max ${MAX_DOMAIN_ENTRIES})`,
   },
   {
     name: "timeout",
@@ -162,8 +173,7 @@ const SEARCH_ASK_FLAGS = [
   {
     name: "depth",
     type: "string",
-    summary:
-      "Research depth: fast|low|medium|high (default low; medium escalates, fast opts down to one fact)",
+    summary: `Research depth: ${SEARCH_DEPTHS.join("|")} (default ${DEFAULT_SEARCH_DEPTH}; ${ESCALATION_SEARCH_DEPTH} escalates, fast opts down to one fact)`,
   },
   {
     name: "allow-expensive",
@@ -181,7 +191,7 @@ const SEARCH_FIND_FLAGS = [
   {
     name: "limit",
     type: "string",
-    summary: "Hits to return, 1-20 (default 5)",
+    summary: `Hits to return, 1-${MAX_FIND_LIMIT} (default ${DEFAULT_FIND_LIMIT})`,
   },
   ...SEARCH_FILTER_FLAGS,
 ] as const satisfies readonly FlagDescriptor[];

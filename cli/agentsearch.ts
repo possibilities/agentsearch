@@ -50,6 +50,7 @@ import {
   GUARDED_DEPTHS,
   isRecency,
   isSearchDepth,
+  MAX_FIND_LIMIT,
   parseAgentResponse,
   parseDomainFilter,
   parseSearchResponse,
@@ -78,8 +79,7 @@ export const SEARCH_SCHEMA_VERSION = 1;
 export const DEFAULT_ASK_TIMEOUT_MS = 180_000;
 export const DEFAULT_FIND_TIMEOUT_MS = 60_000;
 
-/** This verb's own bound on `find --limit`. */
-export const MAX_FIND_LIMIT = 20;
+export { MAX_FIND_LIMIT };
 
 /** Cap on the provider-supplied failure text carried into `error.details`. */
 const PROVIDER_MESSAGE_CAP = 400;
@@ -197,9 +197,10 @@ Reading the result — stdout is the {schema_version, ok, error, data} envelope:
   ask   data = {answer, sources[], usage}. sources is the EVIDENCE SET the
         answer was written from — deduped by URL, and including pages that were
         retrieved but never cited. It is not a list of inline references: these
-        presets do not reliably write [web:N] markers into the prose. When a
-        marker IS present it matches a sources[].ref verbatim, never renumbered,
-        so an unresolvable ref is mechanically detectable.
+        presets do not reliably write inline markers into the prose. When a
+        marker IS present (a [web:2]-style ref or a bare [7]) it matches a
+        sources[].ref verbatim, never renumbered, so an unresolvable ref is
+        mechanically detectable.
   find  data = {hits[], total, usage}.
 
 Judge an answer on its evidence, not on a score: this verb emits depth, sources,

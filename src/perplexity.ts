@@ -67,6 +67,9 @@ export const MAX_DOMAIN_ENTRIES = 20;
  *  asks for it, and every hit is paid retrieval. */
 export const DEFAULT_FIND_LIMIT = 5;
 
+/** Ceiling on `find --limit` — one flag's bounds, kept beside its default. */
+export const MAX_FIND_LIMIT = 20;
+
 /** Per-page token budget for a `find` snippet. */
 export const FIND_MAX_TOKENS_PER_PAGE = 512;
 
@@ -93,10 +96,12 @@ function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/** A result's citation ref. The provider numbers results with an INTEGER `id`
- *  and cites them inline as `[7]`, so the ref is rendered as its own decimal
- *  text — never coerced away for not already being a string, and never
- *  renumbered, so a marker in the answer matches a source ref exactly. */
+/** A result's citation ref, preserved VERBATIM so a marker in the answer
+ *  matches a source ref exactly, never renumbered. The provider has used two
+ *  marker dialects — string refs cited as `[web:2]`, and integer result ids
+ *  cited as bare `[7]` — so an integer ref is rendered as its own decimal text
+ *  rather than coerced away for not already being a string.
+ *  `CITATION_MARKER` below accepts both dialects. */
 function refValue(value: unknown): string | null {
   if (typeof value === "string" && value.length > 0) return value;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -217,9 +222,10 @@ export function buildSearchRequestBody(spec: {
 
 // ── response payloads ────────────────────────────────────────────────────────
 
-/** One retrieved page behind an answer. `ref` is the provider's OWN marker (the
- *  `[web:2]` form the answer text cites); it is preserved verbatim so a reader
- *  can match marker to source without renumbering. */
+/** One retrieved page behind an answer. `ref` is the provider's OWN marker in
+ *  whichever dialect the response used — a `web:2`-style string, or an integer
+ *  id kept as its decimal text (cited inline as a bare `[7]`) — preserved
+ *  verbatim so a reader can match marker to source without renumbering. */
 export interface AskSource {
   ref: string | null;
   url: string;

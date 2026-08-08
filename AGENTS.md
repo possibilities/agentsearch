@@ -18,3 +18,18 @@
 - The flag surface derives from `cli/descriptor.ts`, whose summaries
   interpolate the governing constants — change the constant, never the
   prose.
+
+## The search skill
+
+- `skills/search/SKILL.md` is the canonical deep runbook for this CLI — the
+  advertised one. `--agent-help` stays as the in-binary fallback for a session
+  that has no skill installed; the two must never contradict each other.
+- Funk's skills scanner installs it globally: `npx skills add` against this
+  checkout, discovering the nested `skills/<name>/SKILL.md` layout. The skill
+  directory ships as a unit, so it stays self-contained — no `../` references
+  out of it, and nothing in it may depend on the rest of the repository being
+  present.
+- A change to CLI behavior obliges re-verifying the skill's claims against the
+  live CLI before editing its prose. `--agent-help`, `--help`,
+  `--agent-teaser`, and `--version` are free and are the whole verification
+  surface; the rule above still holds — never `ask` or `find`.

@@ -220,6 +220,8 @@ POST is never retried, because these endpoints carry no idempotency key and a
 retry can bill twice.
 
 Not here: fetching a specific URL's content. That is agentscrape's job.
+
+The 'search' skill is the full runbook; this text is the in-binary fallback.
 `;
 
 export const AGENT_TEASER =

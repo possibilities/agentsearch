@@ -1,0 +1,6 @@
+interface:
+  display_name: "Search"
+  short_description: "Cited web answers and source links with agentsearch"
+  default_prompt: "Use $search to look this up on the live web."
+policy:
+  allow_implicit_invocation: true

@@ -230,6 +230,13 @@ describe("help text", () => {
     expect(AGENT_HELP).toContain("agentscrape");
     expect(AGENT_HELP).not.toMatch(/fetch a URL|--url\b/);
   });
+
+  test("the runbook points at the skill that carries the deep version", () => {
+    // The advertised runbook is the globally installed 'search' skill; this
+    // text is what a session reaches when the skill is not installed.
+    expect(AGENT_HELP).toContain("'search' skill");
+    expect(AGENT_HELP).toContain("in-binary fallback");
+  });
 });
 
 describe("descriptor registration", () => {

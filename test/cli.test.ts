@@ -222,8 +222,8 @@ describe("help text", () => {
   });
 
   test("the runbook names both credential sources", () => {
-    expect(AGENT_HELP).toContain("secrets.yaml");
-    expect(HELP).toContain("secrets.yaml");
+    expect(AGENT_HELP).toContain("secrets.json");
+    expect(HELP).toContain("secrets.json");
   });
 
   test("the runbook never advertises URL fetching", () => {
@@ -458,7 +458,7 @@ describe("runSearchCommand", () => {
       env: {},
       resolveApiKey: () => {
         throw new SecretsError(
-          "the agentsearch secrets file is not valid YAML",
+          "the agentsearch secrets file is not valid JSON",
         );
       },
     });

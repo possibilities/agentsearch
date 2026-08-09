@@ -9,8 +9,8 @@ Requires Bun ≥ 1.3.14 and a `PERPLEXITY_API_KEY` — every call is paid.
 ```sh
 ./scripts/install.sh
 mkdir -p ~/.config/agentsearch && chmod 700 ~/.config/agentsearch
-printf 'PERPLEXITY_API_KEY: <key>\n' > ~/.config/agentsearch/secrets.yaml
-chmod 600 ~/.config/agentsearch/secrets.yaml
+printf '{"PERPLEXITY_API_KEY": "<key>"}\n' > ~/.config/agentsearch/secrets.json
+chmod 600 ~/.config/agentsearch/secrets.json
 ```
 
 The installer links `$HOME/.local/bin/agentsearch` to this checkout; set `AGENTSEARCH_INSTALL_BIN_DIR` and `AGENTSEARCH_INSTALL_STATE_DIR` to override the install locations, and `./scripts/install.sh --uninstall` removes both. The environment variable also works for the key; the file leg exists for hooks and daemons that inherit no shell profile. `AGENTSEARCH_CONFIG_DIR` relocates the directory.

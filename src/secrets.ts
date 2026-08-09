@@ -1,10 +1,10 @@
 /**
- * `~/.config/agentsearch/secrets.yaml` — the provider-credential file, and the
+ * `~/.config/agentsearch/secrets.json` — the provider-credential file, and the
  * two-step resolution every agentsearch credential reads through.
  *
  * Resolution is env-first, file-second: a non-empty environment variable wins,
- * otherwise the flat YAML map supplies the value. The file leg is what makes a
- * credential work OUTSIDE an interactive shell — a hook-invoked or
+ * otherwise the flat JSON object supplies the value. The file leg is what makes
+ * a credential work OUTSIDE an interactive shell — a hook-invoked or
  * daemon-invoked process routinely inherits none of a login shell's
  * environment, so an env-only credential would resolve for a human at a
  * terminal and fail everywhere else.
@@ -12,19 +12,25 @@
  * Tolerance is deliberate and matches the flat-string schema the file carries:
  * a missing file, a missing key, and an empty or non-string value ALL mean
  * simply "no credential" — never an error. Only a document that is not valid
- * YAML, or one whose root is not a map, is a real fault, because that is a
- * corrupt file rather than an unconfigured one.
+ * JSON, or one whose root is not an object, is a real fault, because that is a
+ * corrupt file rather than an unconfigured one. The one loud exception: a
+ * leftover pre-migration `secrets.yaml` beside a missing `secrets.json` throws
+ * rather than silently resolving to "no credential".
  *
- * SECRET HYGIENE: a YAML parser's own error text can quote the offending line,
- * which in this file is a credential. {@link SecretsError} therefore carries a
- * fixed message and NEVER the parser detail or the file's bytes. Nothing in
- * this module logs, echoes, or returns anything but the requested value.
+ * SECRET HYGIENE: a JSON parser's own error text can quote the offending
+ * token, which in this file is a credential. {@link SecretsError} therefore
+ * carries a fixed message and NEVER the parser detail or the file's bytes.
+ * Nothing in this module logs, echoes, or returns anything but the requested
+ * value.
  *
- * Dep-free leaf: `node:os` / `node:path` / `node:fs` and `Bun.YAML` only — a
+ * The repository's `secrets.schema.json` describes this file for editors; it
+ * is reference material, not a runtime dependency.
+ *
+ * Dep-free leaf: `node:os` / `node:path` / `node:fs` and `JSON.parse` only — a
  * credential read must not open a database or touch the network.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -46,43 +52,56 @@ export function agentsearchConfigDir(
   return join(homedir(), ".config", "agentsearch");
 }
 
-/** The secrets file (`<config-dir>/secrets.yaml`). */
+/** The secrets file (`<config-dir>/secrets.json`). */
 export function agentsearchSecretsPath(
   env: Record<string, string | undefined> = process.env,
 ): string {
-  return join(agentsearchConfigDir(env), "secrets.yaml");
+  return join(agentsearchConfigDir(env), "secrets.json");
 }
 
 /**
  * Parse a secrets document into its flat map. An empty or whitespace-only
  * document is an empty map (an unconfigured file, not a fault); a document that
- * will not parse, or whose root is not a map, throws {@link SecretsError}.
+ * will not parse, or whose root is not an object, throws {@link SecretsError}.
  */
 export function parseSecrets(text: string): Record<string, unknown> {
   if (text.trim().length === 0) return {};
   let parsed: unknown;
   try {
-    parsed = Bun.YAML.parse(text);
+    parsed = JSON.parse(text);
   } catch {
-    // The parser's message can quote the offending line — i.e. a credential.
-    throw new SecretsError("the agentsearch secrets file is not valid YAML");
+    // The parser's message can quote the offending token — i.e. a credential.
+    throw new SecretsError("the agentsearch secrets file is not valid JSON");
   }
   if (parsed === null || parsed === undefined) return {};
   if (typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new SecretsError(
-      "the agentsearch secrets file must be a flat map of name to value",
+      "the agentsearch secrets file must be a flat JSON object of name to value",
     );
   }
   return parsed as Record<string, unknown>;
 }
 
-/** Read and parse the secrets file. An absent file is an empty map. */
+/**
+ * Read and parse the secrets file. An absent file is an empty map — except
+ * when a legacy `secrets.yaml` sits where `secrets.json` is missing, which is
+ * a half-finished migration and must fail loud rather than quietly resolving
+ * to "no credential".
+ */
 export function readSecrets(path: string): Record<string, unknown> {
   let text: string;
   try {
     text = readFileSync(path, "utf8");
   } catch {
     // Absent, unreadable, or permission-denied all mean "no credentials here".
+    const legacy = path.endsWith(".json")
+      ? `${path.slice(0, -".json".length)}.yaml`
+      : null;
+    if (legacy !== null && existsSync(legacy)) {
+      throw new SecretsError(
+        "agentsearch now reads secrets.json; found a legacy secrets.yaml — convert it to JSON and remove the old file",
+      );
+    }
     return {};
   }
   return parseSecrets(text);

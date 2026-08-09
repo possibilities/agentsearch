@@ -119,8 +119,9 @@ Flags (find):
   --recency, --domains, --timeout, --format, --json, --help  as above
 
 Auth:
-  PERPLEXITY_API_KEY from the environment, else the line
-  'PERPLEXITY_API_KEY: <key>' in ~/.config/agentsearch/secrets.yaml. The file leg is
+  PERPLEXITY_API_KEY from the environment, else the key "PERPLEXITY_API_KEY" in
+  ~/.config/agentsearch/secrets.json — a flat JSON object such as
+  '{"PERPLEXITY_API_KEY": "<key>"}'. The file leg is
   what makes this work under hooks and daemons, which inherit no shell profile.
 
 Cost:
@@ -209,7 +210,7 @@ error.code budget_exceeded once either cap is spent; both caps are env-tunable
 AGENTSEARCH_BUDGET_MONTHLY_USD) and default conservatively.
 
 Auth resolves PERPLEXITY_API_KEY from the environment first, then from
-~/.config/agentsearch/secrets.yaml — so this works under hooks and daemons that
+~/.config/agentsearch/secrets.json — so this works under hooks and daemons that
 inherit no shell profile.
 
 Failure: error.code is one of missing_api_key, secrets_unreadable,
@@ -436,13 +437,14 @@ export interface RunSearchDeps {
 export const API_KEY_NAME = "PERPLEXITY_API_KEY";
 
 const RECOVERY_MISSING_KEY =
-  "Export PERPLEXITY_API_KEY in the environment, or add the line " +
-  "'PERPLEXITY_API_KEY: <key>' to ~/.config/agentsearch/secrets.yaml, then re-run. " +
-  "No request was sent and nothing was spent.";
+  "Export PERPLEXITY_API_KEY in the environment, or add it to " +
+  '~/.config/agentsearch/secrets.json as \'{"PERPLEXITY_API_KEY": "<key>"}\', ' +
+  "then re-run. No request was sent and nothing was spent.";
 
 const RECOVERY_SECRETS =
-  "Repair ~/.config/agentsearch/secrets.yaml — it must be a flat YAML map such as " +
-  "'PERPLEXITY_API_KEY: <key>'. No request was sent and nothing was spent.";
+  "Repair ~/.config/agentsearch/secrets.json — it must be a flat JSON object " +
+  'such as \'{"PERPLEXITY_API_KEY": "<key>"}\'. No request was sent and nothing ' +
+  "was spent.";
 
 const RECOVERY_BUDGET =
   "The rolling search budget for this window is spent. Wait for the window to " +

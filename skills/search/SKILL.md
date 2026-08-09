@@ -61,11 +61,11 @@ not something you discover mid-task:
 
 ```bash
 [ -n "$PERPLEXITY_API_KEY" ] \
-  || grep -q PERPLEXITY_API_KEY ~/.config/agentsearch/secrets.yaml 2>/dev/null
+  || grep -q PERPLEXITY_API_KEY ~/.config/agentsearch/secrets.json 2>/dev/null
 ```
 
 Auth resolves `PERPLEXITY_API_KEY` from the environment first, then from
-`~/.config/agentsearch/secrets.yaml` (a flat YAML map;
+`~/.config/agentsearch/secrets.json` (a flat JSON object;
 `AGENTSEARCH_CONFIG_DIR` relocates it). The file leg is what makes this work
 under hooks and daemons, which inherit no shell profile. A missing key is
 caught before any request is shaped, so it costs nothing — but it costs a turn.
@@ -265,8 +265,8 @@ An `ok:false` envelope lands on **stdout** with exit 1 and always carries
 
 | `error.code` | What happened | Your move |
 |---|---|---|
-| `missing_api_key` | No key in the environment or the secrets file. Nothing sent, nothing spent. | Tell the user to export `PERPLEXITY_API_KEY` or add it to `~/.config/agentsearch/secrets.yaml`. Do not loop. |
-| `secrets_unreadable` | The secrets file is not valid YAML, or its root is not a map. Nothing sent, nothing spent. | Repair the file's shape. The message never quotes its contents — that would quote the credential. |
+| `missing_api_key` | No key in the environment or the secrets file. Nothing sent, nothing spent. | Tell the user to export `PERPLEXITY_API_KEY` or add it to `~/.config/agentsearch/secrets.json`. Do not loop. |
+| `secrets_unreadable` | The secrets file is not valid JSON, or its root is not an object. Nothing sent, nothing spent. | Repair the file's shape. The message never quotes its contents — that would quote the credential. |
 | `budget_exceeded` | A window's cap is spent. Nothing sent. `details` names `blocked_window`, `spent_usd`, `cap_usd`, `window_hours`. | Report the numbers and stop. Never raise the cap yourself. |
 | `ledger_unavailable` | The ledger could not be read or locked, so the paid request was **skipped** — the ledger fails closed rather than spending unmetered. | Confirm the state directory is writable, then retry. Nothing was spent. |
 | `search_failed` | Transport or HTTP failure. `details` carries `attempts`, `latency_ms`, `retry_safe`, plus `http_status` and `provider_message` when the provider answered at all. | Branch on `retry_safe`: `true` (never reached the provider, or a 4xx rejection) → fix and retry; `false` (5xx or ambiguous) → **do not retry**, read the ledger first. |

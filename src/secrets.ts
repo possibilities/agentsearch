@@ -22,15 +22,19 @@
  * value.
  *
  * The repository's `secrets.schema.json` describes this file for editors; it
- * is reference material, not a runtime dependency.
+ * is generated (`bun run generate:schema`) from the same zod declaration in
+ * `src/secrets-schema.ts` that {@link parseSecrets} validates with, so the
+ * published documentation and the runtime shape check cannot drift.
  *
- * Dep-free leaf: `node:os` / `node:path` / `node:fs` and `JSON.parse` only — a
- * credential read must not open a database or touch the network.
+ * Lean leaf: `node:os` / `node:path` / `node:fs`, `JSON.parse`, and the zod
+ * shape check — a credential read must not open a database or touch the
+ * network.
  */
 
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { secretsDocumentSchema } from "./secrets-schema";
 
 /** A corrupt secrets file. The message is fixed and content-free by design. */
 export class SecretsError extends Error {}
@@ -72,11 +76,16 @@ export function parseSecrets(text: string): Record<string, unknown> {
     throw new SecretsError("the agentsearch secrets file is not valid JSON");
   }
   if (parsed === null || parsed === undefined) return {};
-  if (typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (!secretsDocumentSchema.safeParse(parsed).success) {
+    // Only the shape is zod's to judge; its issue list is never rendered, so
+    // the fixed message below stays the whole error surface.
     throw new SecretsError(
       "the agentsearch secrets file must be a flat JSON object of name to value",
     );
   }
+  // The validated ORIGINAL, not zod's parse output: values must ride through
+  // untouched for resolution to judge, and a copy would drop a key JSON.parse
+  // defines specially (an own "__proto__" entry stays readable here).
   return parsed as Record<string, unknown>;
 }
 

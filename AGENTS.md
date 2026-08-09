@@ -18,6 +18,14 @@
 - The flag surface derives from `cli/descriptor.ts`, whose summaries
   interpolate the governing constants — change the constant, never the
   prose.
+- `secrets.schema.json` is generated, never hand-edited: the zod surface in
+  `src/secrets-schema.ts` is the single source of truth — the loader
+  validates with it and `bun run generate:schema` emits the published file
+  (a test fails on drift). Placement is deliberate: parse accepts any flat
+  JSON object (a wrong-typed value is "no credential" at resolution, never
+  an error), while the published types document the resolution contract for
+  editors — and the map stays open, so any credential name resolves without
+  a schema release.
 
 ## The search skill
 

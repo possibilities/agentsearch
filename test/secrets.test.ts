@@ -8,8 +8,8 @@
  * value are all simply "no credential", because an unconfigured file is a normal
  * state and must not surface as an error. Only a corrupt document is a fault —
  * and its message must never quote the file, whose contents are credentials.
- * The single loud exception is a leftover pre-migration `secrets.yaml`, which
- * throws rather than silently resolving to nothing.
+ * Stray non-JSON files (a pre-migration secrets.yaml, a backup) are simply
+ * never read.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -102,32 +102,10 @@ describe("readSecrets", () => {
     }
   });
 
-  test("a legacy secrets.yaml beside a missing secrets.json is a loud fault", () => {
+  test("a stray secrets.yaml is ignored, not read and not an error", () => {
     const dir = fixture(`${KEY}: ${FAKE}\n`, "secrets.yaml");
     try {
-      let message = "";
-      try {
-        readSecrets(join(dir, "secrets.json"));
-        throw new Error("expected a SecretsError");
-      } catch (err) {
-        expect(err).toBeInstanceOf(SecretsError);
-        message = (err as Error).message;
-      }
-      // Loud, actionable, and content-free: names both files, never the value.
-      expect(message).toContain("secrets.yaml");
-      expect(message).toContain("secrets.json");
-      expect(message).not.toContain(FAKE);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  test("a converted file beside its .yaml backup reads normally", () => {
-    const dir = fixture(`{"${KEY}": "${FAKE}"}\n`);
-    try {
-      // A backup with a suffix (not `.yaml`) must not trigger the legacy fault.
-      writeFileSync(join(dir, "secrets.yaml.bak"), "old: contents\n", "utf8");
-      expect(readSecrets(join(dir, "secrets.json"))).toEqual({ [KEY]: FAKE });
+      expect(readSecrets(join(dir, "secrets.json"))).toEqual({});
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -212,12 +190,12 @@ describe("resolveSecret", () => {
     }
   });
 
-  test("a legacy secrets.yaml throws rather than resolving to nothing", () => {
+  test("a stray secrets.yaml resolves to no credential", () => {
     const dir = fixture(`${KEY}: ${FAKE}\n`, "secrets.yaml");
     try {
-      expect(() =>
+      expect(
         resolveSecret(KEY, { env: { AGENTSEARCH_CONFIG_DIR: dir } }),
-      ).toThrow(SecretsError);
+      ).toBeNull();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -13,9 +13,7 @@
  * a missing file, a missing key, and an empty or non-string value ALL mean
  * simply "no credential" — never an error. Only a document that is not valid
  * JSON, or one whose root is not an object, is a real fault, because that is a
- * corrupt file rather than an unconfigured one. The one loud exception: a
- * leftover pre-migration `secrets.yaml` beside a missing `secrets.json` throws
- * rather than silently resolving to "no credential".
+ * corrupt file rather than an unconfigured one.
  *
  * SECRET HYGIENE: a JSON parser's own error text can quote the offending
  * token, which in this file is a credential. {@link SecretsError} therefore
@@ -30,7 +28,7 @@
  * credential read must not open a database or touch the network.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -82,26 +80,13 @@ export function parseSecrets(text: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-/**
- * Read and parse the secrets file. An absent file is an empty map — except
- * when a legacy `secrets.yaml` sits where `secrets.json` is missing, which is
- * a half-finished migration and must fail loud rather than quietly resolving
- * to "no credential".
- */
+/** Read and parse the secrets file. An absent file is an empty map. */
 export function readSecrets(path: string): Record<string, unknown> {
   let text: string;
   try {
     text = readFileSync(path, "utf8");
   } catch {
     // Absent, unreadable, or permission-denied all mean "no credentials here".
-    const legacy = path.endsWith(".json")
-      ? `${path.slice(0, -".json".length)}.yaml`
-      : null;
-    if (legacy !== null && existsSync(legacy)) {
-      throw new SecretsError(
-        "agentsearch now reads secrets.json; found a legacy secrets.yaml — convert it to JSON and remove the old file",
-      );
-    }
     return {};
   }
   return parseSecrets(text);

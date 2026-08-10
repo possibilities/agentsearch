@@ -1,5 +1,7 @@
 # agentsearch
 
+[![CI](https://github.com/possibilities/agentsearch/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/possibilities/agentsearch/actions/workflows/ci.yml)
+
 Grounded web research for agents: cited answers (`ask`) and ranked hits (`find`) from the Perplexity API, with a spend ledger and budget caps in front of every paid call.
 
 ## Install

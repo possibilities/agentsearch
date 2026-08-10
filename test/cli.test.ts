@@ -397,9 +397,28 @@ const COMPLETED_ASK = JSON.stringify({
   output: [
     {
       type: "search_results",
-      results: [{ id: 1, url: "https://example.com/a", title: "A" }],
+      results: [{ id: 92, url: "https://example.com/a", title: "A" }],
     },
-    { type: "message", content: [{ text: "Answer [1]." }] },
+    // A provider id in the nineties beside an inline [1]: the live shape, and
+    // the pair that audited as a broken citation until `cited_as` existed.
+    {
+      type: "message",
+      content: [
+        {
+          type: "output_text",
+          text: "Answer [1].",
+          annotations: [
+            {
+              type: "url_citation",
+              start_index: 7,
+              end_index: 10,
+              url: "https://example.com/a",
+              title: "A",
+            },
+          ],
+        },
+      ],
+    },
   ],
   usage: {
     input_tokens: 10,

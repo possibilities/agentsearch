@@ -110,7 +110,7 @@ jq -r 'if .ok then .data.answer else "\(.error.code): \(.error.message)" end' an
 
 # 3. Judge the evidence before you use the answer.
 jq '.data.sources | length' answer.json                    # zero is a red flag
-jq -r '.data.sources[] | "\(.ref // "-")  \(.url)"' answer.json
+jq -r '.data.sources[] | "\(.cited_as // "-")  \(.url)"' answer.json  # cited first
 jq '.data.usage | {cost_usd, cost_status, depth, model, tool_calls}' answer.json
 ```
 
@@ -188,25 +188,37 @@ Every run prints one `{schema_version, ok, error, data}` value on stdout.
 **`ask` → `data = {answer, sources[], usage}`**
 
 - `answer` — the synthesized prose.
-- `sources[]` — `{ref, url, title, published_at, updated_at}`. This is the
-  **evidence set** the answer was written from, deduped by canonical URL and
+- `sources[]` — `{ref, cited_as, url, title, published_at, updated_at}`. This is
+  the **evidence set** the answer was written from, deduped by canonical URL and
   *including pages that were retrieved but never cited*. It is not a
   bibliography of inline references: these presets do not reliably write inline
   markers into the prose, and an answer with no markers is not defective.
+  The two identifiers are different things and do not interchange:
+  - `ref` — the **provider's** result id, verbatim. It is allocated across the
+    whole run and routinely runs into the hundreds within a single response.
+    Useful for correlating against the raw response; meaningless as a citation.
+  - `cited_as` — the **1-based ordinal in the answer's own citation list**,
+    taken from the response's `url_citation` annotations in order of first
+    citation, or `null` for a page retrieved but never cited. This is the number
+    an inline marker indexes.
 - `usage` — `{cost_usd, cost_status, depth, model, input_tokens,
   output_tokens, tool_calls, response_id}`. `tool_calls` counts the legs the
   preset ran, keyed by tool (`search_web`, `fetch_url`).
 
-When a marker *is* present — a `[web:2]`-style ref or a bare `[7]` — it matches
-a `sources[].ref` **verbatim, never renumbered**, so an unresolvable reference
-is mechanically detectable rather than a judgement call:
+When a marker *is* present — a bare `[2]`, or a `[web:2]`-style ref whose
+numeric tail carries the index — it resolves against `sources[].cited_as`, so an
+unresolvable reference is mechanically detectable rather than a judgement call:
 
 ```bash
 jq -r '
-  (.data.answer | [scan("\\[([A-Za-z_]*:?[0-9]+)\\]")] | flatten | unique) as $refs
-  | ($refs - (.data.sources | map(.ref) | map(select(. != null))))
+  (.data.answer | [scan("\\[[A-Za-z_]*:?([0-9]+)\\]")] | flatten | unique) as $marks
+  | ($marks - (.data.sources | map(.cited_as) | map(select(. != null)) | map(tostring)))
   | "unresolved refs: \(.)"' answer.json
 ```
+
+Auditing markers against `ref` instead is the mistake the two fields exist to
+prevent: those are different numbering spaces, and comparing them reports every
+marker in every answer unresolved.
 
 The CLI records that audit in the ledger; it does not put it in the payload.
 Run the check yourself when the answer's citations matter.

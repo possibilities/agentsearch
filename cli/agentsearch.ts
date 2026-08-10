@@ -191,10 +191,12 @@ Reading the result — stdout is the {schema_version, ok, error, data} envelope:
   ask   data = {answer, sources[], usage}. sources is the EVIDENCE SET the
         answer was written from — deduped by URL, and including pages that were
         retrieved but never cited. It is not a list of inline references: these
-        presets do not reliably write inline markers into the prose. When a
-        marker IS present (a [web:2]-style ref or a bare [7]) it matches a
-        sources[].ref verbatim, never renumbered, so an unresolvable ref is
-        mechanically detectable.
+        presets do not reliably write inline markers into the prose.
+        Two identifiers per source, and they are NOT interchangeable:
+        sources[].ref is the provider's own result id (verbatim, runs into the
+        hundreds within one response), while sources[].cited_as is the 1-based
+        ordinal in the answer's citation list, or null when the page was never
+        cited. An inline [2] indexes cited_as — never ref.
   find  data = {hits[], total, usage}.
 
 Judge an answer on its evidence, not on a score: this verb emits depth, sources,

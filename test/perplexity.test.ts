@@ -43,10 +43,21 @@ describe("depth default", () => {
 });
 
 describe("auditCitations", () => {
+  // A provider id in the hundreds beside a citation ordinal of 1 — the real
+  // shape observed live, and the pair the audit must never confuse.
   const sources = [
     {
-      ref: "web:1",
+      ref: "108",
+      cited_as: 1,
       url: "https://a",
+      title: null,
+      published_at: null,
+      updated_at: null,
+    },
+    {
+      ref: "109",
+      cited_as: null,
+      url: "https://b",
       title: null,
       published_at: null,
       updated_at: null,
@@ -61,23 +72,36 @@ describe("auditCitations", () => {
     });
   });
 
-  test("resolves a marker against an emitted source ref", () => {
-    expect(auditCitations("Grounded [web:1].", sources)).toEqual({
-      refs: ["web:1"],
+  test("resolves a marker against the citation ordinal, not the provider id", () => {
+    expect(auditCitations("Grounded [1].", sources)).toEqual({
+      refs: ["1"],
       unresolved: [],
     });
   });
 
-  test("flags a marker that resolves to no emitted source", () => {
-    const audit = auditCitations("Claimed [web:9] and [web:1].", sources);
-    expect([...audit.refs].sort()).toEqual(["web:1", "web:9"]);
-    expect(audit.unresolved).toEqual(["web:9"]);
+  test("a provider id is NOT a citation reference", () => {
+    // The regression this whole shape exists to prevent: auditing markers
+    // against `ref` reported every marker on every real call unresolved.
+    const audit = auditCitations("Grounded [108].", sources);
+    expect(audit.unresolved).toEqual(["108"]);
+  });
+
+  test("an uncited source lends no ordinal to resolve against", () => {
+    expect(auditCitations("Claimed [2].", sources).unresolved).toEqual(["2"]);
+  });
+
+  test("a prefixed marker resolves on its numeric tail", () => {
+    expect(auditCitations("Grounded [web:1].", sources).unresolved).toEqual([]);
+  });
+
+  test("flags a marker that resolves to no cited source", () => {
+    const audit = auditCitations("Claimed [9] and [1].", sources);
+    expect([...audit.refs].sort()).toEqual(["1", "9"]);
+    expect(audit.unresolved).toEqual(["9"]);
   });
 
   test("counts distinct markers, not occurrences", () => {
-    expect(auditCitations("[web:1] and again [web:1].", sources).refs).toEqual([
-      "web:1",
-    ]);
+    expect(auditCitations("[1] and again [1].", sources).refs).toEqual(["1"]);
   });
 });
 
@@ -295,23 +319,43 @@ function agentResponse(overrides: Record<string, unknown> = {}): unknown {
         type: "search_results",
         results: [
           {
-            id: 1,
+            id: 92,
             url: "https://example.com/a",
             title: "A",
             snippet: "retrieved page text that must not reach the payload",
             source: "web",
             last_updated: "2020-02-02",
           },
-          { id: 2, url: "https://example.com/b", title: "B" },
+          { id: 93, url: "https://example.com/b", title: "B" },
         ],
       },
       {
         type: "fetch_url_results",
         results: [
-          { id: 3, url: "https://example.com/a", last_updated: "later" },
+          { id: 96, url: "https://example.com/a", last_updated: "later" },
         ],
       },
-      { type: "message", content: [{ text: "The answer [2]." }] },
+      // Ids are the provider's own, allocated across the run and gappy — the
+      // live shape (92…160 in one response), never a 1-based ordinal. The
+      // citation channel is `annotations`, beside the text and not inside it.
+      {
+        type: "message",
+        content: [
+          {
+            type: "output_text",
+            text: "The answer [1].",
+            annotations: [
+              {
+                type: "url_citation",
+                start_index: 11,
+                end_index: 14,
+                url: "https://example.com/b",
+                title: "B",
+              },
+            ],
+          },
+        ],
+      },
     ],
     usage: {
       input_tokens: 1234,
@@ -330,9 +374,120 @@ describe("parseAgentResponse", () => {
     const parsed = parseAgentResponse(agentResponse(), "low");
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.payload.answer).toBe("The answer [2].");
-    // An integer id renders as its own decimal text so an inline [2] resolves.
-    expect(parsed.payload.sources.map((s) => s.ref)).toEqual(["1", "2"]);
+    expect(parsed.payload.answer).toBe("The answer [1].");
+    // Provider ids, verbatim and unrenumbered — they are not citation refs.
+    expect(parsed.payload.sources.map((s) => s.ref)).toEqual(["92", "93"]);
+  });
+
+  test("numbers sources by the answer's citation order, not retrieval order", () => {
+    const parsed = parseAgentResponse(agentResponse(), "low");
+    if (!parsed.ok) throw new Error("expected a parsed payload");
+    // The answer cites the SECOND retrieved page, so that page is citation 1.
+    expect(parsed.payload.sources.map((s) => [s.url, s.cited_as])).toEqual([
+      ["https://example.com/a", null],
+      ["https://example.com/b", 1],
+    ]);
+  });
+
+  test("the answer's markers resolve against the payload it ships with", () => {
+    // The end-to-end regression: for every real call ever made, every marker
+    // audited unresolved because markers were compared against provider ids.
+    const parsed = parseAgentResponse(agentResponse(), "low");
+    if (!parsed.ok) throw new Error("expected a parsed payload");
+    const audit = auditCitations(parsed.payload.answer, parsed.payload.sources);
+    expect(audit.refs).toEqual(["1"]);
+    expect(audit.unresolved).toEqual([]);
+  });
+
+  test("a cited page missing from the tool results is carried, not dropped", () => {
+    const parsed = parseAgentResponse(
+      agentResponse({
+        output: [
+          {
+            type: "message",
+            content: [
+              {
+                type: "output_text",
+                text: "Grounded [1].",
+                annotations: [
+                  {
+                    type: "url_citation",
+                    start_index: 9,
+                    end_index: 12,
+                    url: "https://example.com/only-cited",
+                    title: "Only cited",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+      "low",
+    );
+    if (!parsed.ok) throw new Error("expected a parsed payload");
+    expect(parsed.payload.sources).toEqual([
+      {
+        ref: null,
+        cited_as: 1,
+        url: "https://example.com/only-cited",
+        title: "Only cited",
+        published_at: null,
+        updated_at: null,
+      },
+    ]);
+  });
+
+  test("a URL cited twice keeps its first ordinal", () => {
+    const annotation = (url: string) => ({
+      type: "url_citation",
+      start_index: 0,
+      end_index: 1,
+      url,
+      title: null,
+    });
+    const parsed = parseAgentResponse(
+      agentResponse({
+        output: [
+          {
+            type: "message",
+            content: [
+              {
+                type: "output_text",
+                text: "[1] then [2] then [1].",
+                annotations: [
+                  annotation("https://example.com/x"),
+                  annotation("https://example.com/y"),
+                  annotation("https://example.com/x#again"),
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+      "low",
+    );
+    if (!parsed.ok) throw new Error("expected a parsed payload");
+    expect(parsed.payload.sources.map((s) => s.cited_as)).toEqual([1, 2]);
+  });
+
+  test("an answer with no annotations leaves every source uncited", () => {
+    // Some presets cite nothing. That is not a defect, and it must not invent
+    // ordinals that an inline marker would then appear to resolve against.
+    const parsed = parseAgentResponse(
+      agentResponse({
+        output: [
+          {
+            type: "search_results",
+            results: [{ id: 92, url: "https://example.com/a", title: "A" }],
+          },
+          { type: "message", content: [{ text: "No markers here." }] },
+        ],
+      }),
+      "low",
+    );
+    if (!parsed.ok) throw new Error("expected a parsed payload");
+    expect(parsed.payload.sources.map((s) => s.cited_as)).toEqual([null]);
   });
 
   test("folds search and fetch results into one list deduped by URL", () => {
@@ -372,6 +527,7 @@ describe("parseAgentResponse", () => {
     const parsed = parseAgentResponse(agentResponse(), "low");
     if (!parsed.ok) throw new Error("expected a parsed payload");
     expect(Object.keys(parsed.payload.sources[0] ?? {}).sort()).toEqual([
+      "cited_as",
       "published_at",
       "ref",
       "title",

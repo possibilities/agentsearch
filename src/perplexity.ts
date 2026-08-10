@@ -96,12 +96,14 @@ function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/** A result's citation ref, preserved VERBATIM so a marker in the answer
- *  matches a source ref exactly, never renumbered. The provider has used two
- *  marker dialects — string refs cited as `[web:2]`, and integer result ids
- *  cited as bare `[7]` — so an integer ref is rendered as its own decimal text
- *  rather than coerced away for not already being a string.
- *  `CITATION_MARKER` below accepts both dialects. */
+/** A result's provider-side id, preserved verbatim as text.
+ *
+ *  This is the PROVIDER'S OWN identifier for a retrieved page, allocated across
+ *  the whole run — observed live as a gappy integer sequence (92, 93, 96, …,
+ *  160 within a single response). It is deliberately NOT what an answer's
+ *  inline `[n]` marker refers to: markers are small per-answer ordinals, and
+ *  comparing the two numbering spaces resolves nothing. `cited_as` carries the
+ *  ordinal a marker actually indexes. */
 function refValue(value: unknown): string | null {
   if (typeof value === "string" && value.length > 0) return value;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -222,12 +224,24 @@ export function buildSearchRequestBody(spec: {
 
 // ── response payloads ────────────────────────────────────────────────────────
 
-/** One retrieved page behind an answer. `ref` is the provider's OWN marker in
- *  whichever dialect the response used — a `web:2`-style string, or an integer
- *  id kept as its decimal text (cited inline as a bare `[7]`) — preserved
- *  verbatim so a reader can match marker to source without renumbering. */
+/**
+ * One retrieved page behind an answer.
+ *
+ * Two distinct identifiers, and conflating them is the defect this shape exists
+ * to prevent:
+ *
+ *  - `ref` — the PROVIDER's result id, verbatim. Stable across the run, useful
+ *    for correlating a page against the raw response, and meaningless as a
+ *    citation reference.
+ *  - `cited_as` — the 1-based ordinal this source holds in the answer's OWN
+ *    citation list, derived from the response's `url_citation` annotations in
+ *    order of first citation. This is the space an inline `[2]` indexes. `null`
+ *    means the page was retrieved but never cited — the common case, since the
+ *    evidence set is deliberately wider than the bibliography.
+ */
 export interface AskSource {
   ref: string | null;
+  cited_as: number | null;
   url: string;
   title: string | null;
   published_at: string | null;
@@ -370,6 +384,7 @@ function collectSources(raw: unknown, into: Map<string, AskSource>): void {
     const key = canonicalUrl(url);
     const next: AskSource = {
       ref: refValue(item.id),
+      cited_as: null,
       url,
       title: str(item.title),
       published_at: str(item.date),
@@ -420,6 +435,67 @@ export function countToolCalls(
   return counts;
 }
 
+/**
+ * One `url_citation` annotation: the provider's REAL citation channel.
+ *
+ * A message content part carries `annotations[]` alongside its `text`, each
+ * binding a character span of the answer to the source URL it came from. This —
+ * not a bracket in the prose — is what the API defines as a citation, and it is
+ * the only mapping from answer to evidence that does not require guessing.
+ */
+interface UrlCitation {
+  readonly url: string;
+  readonly title: string | null;
+}
+
+/** Read one content part's `annotations[]`, keeping `url_citation` entries in
+ *  the order they appear — that order IS the answer's citation numbering. */
+function collectCitations(raw: unknown, into: UrlCitation[]): void {
+  if (!Array.isArray(raw)) return;
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    if (item.type !== "url_citation") continue;
+    const url = str(item.url);
+    if (url === null) continue;
+    into.push({ url, title: str(item.title) });
+  }
+}
+
+/**
+ * Number the sources by the answer's own citation order and fold in any cited
+ * page the tool results never carried.
+ *
+ * The returned list keeps retrieval order — the evidence set is what it always
+ * was — and only stamps `cited_as`. A citation whose URL matches no retrieved
+ * source is APPENDED rather than dropped: an answer citing evidence the payload
+ * does not carry is precisely the fault the audit reports, so the payload has to
+ * be able to show it.
+ */
+function applyCitationOrder(
+  sources: Map<string, AskSource>,
+  citations: readonly UrlCitation[],
+): AskSource[] {
+  let ordinal = 0;
+  for (const citation of citations) {
+    const key = canonicalUrl(citation.url);
+    const existing = sources.get(key);
+    if (existing !== undefined) {
+      // A URL cited more than once keeps the ordinal from its first citation.
+      if (existing.cited_as === null) existing.cited_as = ++ordinal;
+      continue;
+    }
+    sources.set(key, {
+      ref: null,
+      cited_as: ++ordinal,
+      url: citation.url,
+      title: citation.title,
+      published_at: null,
+      updated_at: null,
+    });
+  }
+  return [...sources.values()];
+}
+
 /** A citation marker in an answer: `[web:2]`, `[fetch:1]`, or a bare `[3]`. */
 const CITATION_MARKER = /\[([A-Za-z_]*:?\d+)\]/g;
 
@@ -432,7 +508,14 @@ export interface CitationAudit {
 }
 
 /**
- * Audit an answer's inline citation markers against the emitted source refs.
+ * Audit an answer's inline citation markers against the citation ordinals the
+ * payload carries.
+ *
+ * Markers are matched against `cited_as`, NOT against `ref`. Those are separate
+ * numbering spaces — `ref` is a provider id running into the hundreds within one
+ * response, while a marker is a small per-answer ordinal — and auditing one
+ * against the other reported every marker unresolved on every call ever made.
+ *
  * Purely mechanical: it reports which markers appear and which do not resolve,
  * and derives NO score or verdict from them. An answer that carries no markers
  * audits clean and empty — absence of inline citation is not a defect, it is
@@ -444,8 +527,9 @@ export function auditCitations(
 ): CitationAudit {
   const known = new Set(
     sources
-      .map((s) => s.ref)
-      .filter((ref): ref is string => ref !== null && ref.length > 0),
+      .map((s) => s.cited_as)
+      .filter((n): n is number => n !== null)
+      .map((n) => String(n)),
   );
   const refs = new Set<string>();
   for (const match of answer.matchAll(CITATION_MARKER)) {
@@ -454,7 +538,9 @@ export function auditCitations(
   }
   return {
     refs: [...refs],
-    unresolved: [...refs].filter((ref) => !known.has(ref)),
+    // A prefixed marker (`[web:2]`) carries the provider's own dialect; only its
+    // numeric tail can index the citation list.
+    unresolved: [...refs].filter((ref) => !known.has(ref.replace(/^.*:/, ""))),
   };
 }
 
@@ -506,14 +592,16 @@ export function parseAgentResponse(
   const output = raw.output;
   const chunks: string[] = [];
   const sources = new Map<string, AskSource>();
+  const citations: UrlCitation[] = [];
   if (Array.isArray(output)) {
     for (const entry of output) {
       if (!isRecord(entry)) continue;
       if (entry.type === "message" && Array.isArray(entry.content)) {
         for (const part of entry.content) {
-          if (isRecord(part) && typeof part.text === "string") {
-            chunks.push(part.text);
-          }
+          if (!isRecord(part)) continue;
+          if (typeof part.text === "string") chunks.push(part.text);
+          // The citation channel rides beside the text, not inside it.
+          collectCitations(part.annotations, citations);
         }
       }
       // A tool-result entry is typed `<something>_results` and carries its rows
@@ -539,7 +627,7 @@ export function parseAgentResponse(
     ok: true,
     payload: {
       answer,
-      sources: [...sources.values()],
+      sources: applyCitationOrder(sources, citations),
       usage: {
         cost_usd: cost,
         cost_status: costStatus(cost),

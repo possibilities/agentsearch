@@ -12,6 +12,13 @@
   than sending it unmetered, and an ambiguous POST is never retried —
   these endpoints carry no idempotency key, so a blind retry can bill
   twice (`src/ledger.ts`, `src/transport.ts`).
+- A source's `ref` (provider result id, gappy and into the hundreds) and its
+  `cited_as` (1-based citation ordinal from the response's `url_citation`
+  annotations) are different numbering spaces; only `cited_as` is what an
+  inline `[2]` indexes. Auditing markers against `ref` reported every marker
+  of every call unresolved, and a fixture using small ordinal ids (`id: 1`)
+  hid it — response fixtures must keep realistic gappy ids and real
+  annotations (`src/perplexity.ts`, `CONTEXT.md`).
 - No env var or config may raise the implicit `--depth` above its default;
   a deeper run is always an explicit flag, and `high` also demands
   `--allow-expensive`.

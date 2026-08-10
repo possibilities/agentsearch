@@ -1,4 +1,4 @@
-# agentsearch
+# AgentSearch
 
 [![CI](https://github.com/possibilities/agentsearch/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/possibilities/agentsearch/actions/workflows/ci.yml)
 

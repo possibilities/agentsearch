@@ -39,7 +39,7 @@
 - `skills/search/SKILL.md` is the canonical deep runbook for this CLI — the
   advertised one. `--agent-help` stays as the in-binary fallback for a session
   that has no skill installed; the two must never contradict each other.
-- Funk's skills scanner installs it globally: `npx skills add` against this
+- AgentStart's skills scan installs it globally: `npx skills add` against this
   checkout, discovering the nested `skills/<name>/SKILL.md` layout. The skill
   directory ships as a unit, so it stays self-contained — no `../` references
   out of it, and nothing in it may depend on the rest of the repository being
@@ -55,7 +55,7 @@ This checkout is one of the agent* fleet under `~/code`. Shared machinery
 lives in two siblings, and some changes here must cascade:
 
 - Skills under `skills/<name>/` ship globally through AgentStart's scan
-  (`~/code/agentstart/scripts/sync-skills`, run six-hourly by Funk's
+  (`~/code/agentstart/scripts/sync-skills`, run six-hourly by the scheduled
   updater): a SKILL.md edit is live within six hours, or on demand by
   running that script. Whether a new skill earns a TOOLS.md advertisement
   line is a deliberate decision — `agentwiki get tool-advertisement-policy`.
